@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import * as XLSX from 'xlsx'
+import CapsuleModal from './CapsuleModal'
 
 export default function Dashboard() {
 
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [showCapsule, setShowCapsule] = useState(false)
 
   useEffect(() => { fetchTrades() }, [])
 
@@ -141,6 +143,15 @@ export default function Dashboard() {
           cursor: pointer; transition: all 0.2s; white-space: nowrap;
         }
         .news-btn:hover { background: rgba(99,102,241,0.22); color: #a5b4fc; }
+
+        .capsule-btn {
+          background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff;
+          border: none;
+          padding: 8px 14px; border-radius: 8px;
+          font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px;
+          cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .capsule-btn:hover { opacity: 0.88; transform: translateY(-1px); }
 
         .add-trade-btn {
           background: #10b981; color: #0a0a0f; border: none;
@@ -332,6 +343,7 @@ export default function Dashboard() {
           </div>
           <div className="nav-right">
             <button className="news-btn" onClick={() => router.push('/news')}>📰 News</button>
+            <button className="capsule-btn" onClick={() => setShowCapsule(true)}>💊 Capsule</button>
             <button className="add-trade-btn" onClick={() => router.push('/add-trade')}>+ Add Trade</button>
           </div>
         </nav>
@@ -531,6 +543,8 @@ export default function Dashboard() {
 
         </div>
       </div>
+
+      {showCapsule && <CapsuleModal onClose={() => setShowCapsule(false)} />}
     </>
   )
 }
