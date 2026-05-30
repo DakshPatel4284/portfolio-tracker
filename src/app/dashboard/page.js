@@ -279,6 +279,34 @@ export default function Dashboard() {
           box-shadow: 0 4px 20px rgba(16,185,129,0.3);
         }
 
+        .news-btn {
+          background: rgba(99,102,241,0.12);
+          color: #818cf8;
+          border: 1px solid rgba(99,102,241,0.2);
+          padding: 10px 22px;
+          border-radius: 8px;
+          font-family: 'Syne', sans-serif;
+          font-weight: 700;
+          font-size: 14px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s;
+        }
+
+        .news-btn:hover {
+          background: rgba(99,102,241,0.22);
+          color: #a5b4fc;
+          transform: translateY(-1px);
+        }
+
+        .nav-right {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
         /* MAIN CONTENT */
         .main {
           max-width: 1200px;
@@ -733,12 +761,20 @@ export default function Dashboard() {
             <div className="logo-dot"></div>
             <span>TradeTrack</span>
           </div>
-          <button
-            className="add-trade-btn"
-            onClick={() => router.push('/add-trade')}
-          >
-            + Add Trade
-          </button>
+          <div className="nav-right">
+            <button
+              className="news-btn"
+              onClick={() => router.push('/news')}
+            >
+              📰 News
+            </button>
+            <button
+              className="add-trade-btn"
+              onClick={() => router.push('/add-trade')}
+            >
+              + Add Trade
+            </button>
+          </div>
         </nav>
 
         {/* MAIN */}
