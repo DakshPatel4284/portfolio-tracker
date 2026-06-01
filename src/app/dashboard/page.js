@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [editingTrade, setEditingTrade] = useState(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // CAPSULE STATES
   const [capsuleOpen, setCapsuleOpen] = useState(false)
@@ -272,28 +273,40 @@ Write the 100-word summary now:`
 
         .navbar {
           border-bottom: 1px solid rgba(255,255,255,0.06);
-          padding: 0 16px; min-height: 60px; height: auto;
+          padding: 0 16px; min-height: 60px; height: 60px;
           display: flex; align-items: center; justify-content: space-between;
           background: rgba(10,10,15,0.95); backdrop-filter: blur(12px);
           position: sticky; top: 0; z-index: 100;
-          flex-wrap: wrap; gap: 8px;
-          padding-top: 10px; padding-bottom: 10px;
           padding-left: max(16px, env(safe-area-inset-left));
           padding-right: max(16px, env(safe-area-inset-right));
         }
         .logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; letter-spacing: -0.5px; flex-shrink: 0; }
         .logo-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
-        .nav-right { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 0; }
-        .nav-right::-webkit-scrollbar { display: none; }
 
-        .news-btn { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); padding: 7px 10px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
-        .capsule-nav-btn { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); padding: 7px 10px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0; }
+        /* Desktop nav */
+        .nav-right { display: flex; align-items: center; gap: 8px; }
+        .news-btn { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); padding: 8px 12px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; }
+        .capsule-nav-btn { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); padding: 8px 12px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
         .capsule-nav-btn:hover { background: rgba(245,158,11,0.22); }
-        .add-trade-btn { background: #10b981; color: #0a0a0f; border: none; padding: 7px 10px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+        .add-trade-btn { background: #10b981; color: #0a0a0f; border: none; padding: 8px 12px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; }
         .add-trade-btn:hover { background: #0d9e6e; }
-        @media (max-width: 360px) {
-          .news-btn, .capsule-nav-btn { padding: 6px 8px; font-size: 10px; }
-          .add-trade-btn { padding: 6px 8px; font-size: 10px; }
+
+        /* Hamburger button — hidden on desktop */
+        .hamburger-btn { display: none; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #e8e8f0; width: 38px; height: 38px; border-radius: 9px; cursor: pointer; font-size: 18px; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s; }
+        .hamburger-btn:hover { background: rgba(255,255,255,0.12); }
+
+        /* Mobile dropdown menu */
+        .mobile-menu { display: none; position: absolute; top: 60px; right: 0; left: 0; background: rgba(10,10,15,0.98); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 12px 16px; padding-bottom: max(12px, env(safe-area-inset-bottom)); z-index: 99; flex-direction: column; gap: 8px; animation: menuSlide 0.18s ease; }
+        @keyframes menuSlide { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .mobile-menu.open { display: flex; }
+        .mobile-menu-btn { width: 100%; padding: 13px 16px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px; border: 1px solid transparent; transition: all 0.15s; }
+        .mobile-menu-btn-capsule { background: rgba(245,158,11,0.1); color: #fbbf24; border-color: rgba(245,158,11,0.2); }
+        .mobile-menu-btn-news { background: rgba(99,102,241,0.1); color: #818cf8; border-color: rgba(99,102,241,0.2); }
+        .mobile-menu-btn-add { background: #10b981; color: #0a0a0f; border-color: transparent; }
+
+        @media (max-width: 600px) {
+          .nav-right { display: none; }
+          .hamburger-btn { display: flex; }
         }
 
         .main { max-width: 1200px; margin: 0 auto; padding: 20px 16px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: max(24px, env(safe-area-inset-bottom)); }
@@ -435,15 +448,26 @@ Write the 100-word summary now:`
       <div className="dashboard-bg">
 
         {/* NAVBAR */}
-        <nav className="navbar">
+        <nav className="navbar" style={{ position: 'sticky', top: 0, zIndex: 100 }}>
           <div className="logo">
             <div className="logo-dot"></div>
             <span>TradeTrack</span>
           </div>
+          {/* Desktop buttons */}
           <div className="nav-right">
             <button className="capsule-nav-btn" onClick={() => setCapsuleOpen(true)}>💊 Capsule</button>
             <button className="news-btn" onClick={() => router.push('/news')}>📰 News</button>
             <button className="add-trade-btn" onClick={() => router.push('/add-trade')}>+ Add Trade</button>
+          </div>
+          {/* Mobile hamburger */}
+          <button className="hamburger-btn" onClick={() => setMenuOpen(o => !o)} aria-label="Menu">
+            {menuOpen ? '✕' : '☰'}
+          </button>
+          {/* Mobile dropdown */}
+          <div className={`mobile-menu ${menuOpen ? 'open' : ''}`}>
+            <button className="mobile-menu-btn mobile-menu-btn-capsule" onClick={() => { setCapsuleOpen(true); setMenuOpen(false); }}>💊 Capsule</button>
+            <button className="mobile-menu-btn mobile-menu-btn-news" onClick={() => { router.push('/news'); setMenuOpen(false); }}>📰 News</button>
+            <button className="mobile-menu-btn mobile-menu-btn-add" onClick={() => { router.push('/add-trade'); setMenuOpen(false); }}>+ Add Trade</button>
           </div>
         </nav>
 
