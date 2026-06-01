@@ -165,7 +165,7 @@ export default function Dashboard() {
   }
 
   // ─── GENERATE SUMMARY VIA GROQ ────────────────────────────────────
-  console.log('KEY:', GROQ_API_KEY)
+  //console.log('KEY:', GROQ_API_KEY)
   const generateSummary = async (text, history) => {
     setCapsuleLoading(true)
 
