@@ -272,37 +272,50 @@ Write the 100-word summary now:`
 
         .navbar {
           border-bottom: 1px solid rgba(255,255,255,0.06);
-          padding: 0 20px; height: 60px;
+          padding: 0 16px; min-height: 60px; height: auto;
           display: flex; align-items: center; justify-content: space-between;
           background: rgba(10,10,15,0.95); backdrop-filter: blur(12px);
           position: sticky; top: 0; z-index: 100;
+          flex-wrap: wrap; gap: 8px;
+          padding-top: 10px; padding-bottom: 10px;
+          padding-left: max(16px, env(safe-area-inset-left));
+          padding-right: max(16px, env(safe-area-inset-right));
         }
-        .logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; letter-spacing: -0.5px; }
+        .logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; letter-spacing: -0.5px; flex-shrink: 0; }
         .logo-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
-        .nav-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .nav-right { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 0; }
+        .nav-right::-webkit-scrollbar { display: none; }
 
-        .news-btn { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); padding: 8px 12px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; }
-        .capsule-nav-btn { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); padding: 8px 12px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .news-btn { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); padding: 7px 10px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+        .capsule-nav-btn { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); padding: 7px 10px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0; }
         .capsule-nav-btn:hover { background: rgba(245,158,11,0.22); }
-        .add-trade-btn { background: #10b981; color: #0a0a0f; border: none; padding: 8px 12px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; }
+        .add-trade-btn { background: #10b981; color: #0a0a0f; border: none; padding: 7px 10px; border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
         .add-trade-btn:hover { background: #0d9e6e; }
+        @media (max-width: 360px) {
+          .news-btn, .capsule-nav-btn { padding: 6px 8px; font-size: 10px; }
+          .add-trade-btn { padding: 6px 8px; font-size: 10px; }
+        }
 
-        .main { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
-        .page-title { font-size: 26px; font-weight: 800; letter-spacing: -1px; color: #f0f0f8; }
+        .main { max-width: 1200px; margin: 0 auto; padding: 20px 16px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+        @media (max-width: 480px) { .main { padding: 16px 12px; } }
+        .page-title { font-size: 24px; font-weight: 800; letter-spacing: -1px; color: #f0f0f8; }
+        @media (max-width: 480px) { .page-title { font-size: 20px; } }
         .page-subtitle { color: #6b7280; font-size: 13px; margin-top: 4px; }
         .page-header { margin-bottom: 24px; }
 
-        .filter-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; width: 100%; }
+        .filter-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; width: 100%; }
         .filter-tabs::-webkit-scrollbar { display: none; }
-        .filter-tab { padding: 7px 14px; border-radius: 7px; border: none; background: transparent; color: #6b7280; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; }
+        .filter-tab { padding: 8px 14px; min-height: 36px; border-radius: 7px; border: none; background: transparent; color: #6b7280; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex: 1; min-width: fit-content; display: flex; align-items: center; justify-content: center; }
         .filter-tab.active { background: #1e1e2e; color: #e8e8f0; box-shadow: 0 1px 6px rgba(0,0,0,0.4); }
 
-        .cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
-        @media (max-width: 600px) { .cards-grid { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 380px) { .cards-grid { grid-template-columns: 1fr; } }
-        .stat-card { background: #111118; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 16px; }
+        .cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+        @media (max-width: 640px) { .cards-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+        @media (max-width: 360px) { .cards-grid { grid-template-columns: 1fr; gap: 8px; } }
+        .stat-card { background: #111118; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 14px; min-width: 0; overflow: hidden; }
+        @media (max-width: 480px) { .stat-card { padding: 12px; } }
         .stat-label { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-        .stat-value { font-size: 22px; font-weight: 800; font-family: 'Space Mono', monospace; letter-spacing: -1px; line-height: 1; }
+        .stat-value { font-size: 20px; font-weight: 800; font-family: 'Space Mono', monospace; letter-spacing: -1px; line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        @media (max-width: 480px) { .stat-value { font-size: 16px; letter-spacing: -0.5px; } }
         .stat-value.profit { color: #10b981; }
         .stat-value.loss { color: #ef4444; }
         .stat-value.neutral { color: #e8e8f0; }
@@ -311,18 +324,20 @@ Write the 100-word summary now:`
         .stat-badge.green { background: rgba(16,185,129,0.12); color: #10b981; }
         .stat-badge.red { background: rgba(239,68,68,0.12); color: #ef4444; }
 
-        .download-section { margin-bottom: 24px; }
+        .download-section { margin-bottom: 20px; }
         .download-section-title { font-size: 11px; font-weight: 700; color: #4b5563; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
-        .download-grid { display: flex; gap: 8px; flex-wrap: wrap; }
-        .download-btn { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 14px; color: #9ca3af; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .download-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        @media (max-width: 480px) { .download-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 320px) { .download-grid { grid-template-columns: repeat(2, 1fr); } }
+        .download-btn { display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 10px; color: #9ca3af; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center; }
         .download-btn:hover { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.25); color: #10b981; }
 
-        .edit-form { background: #111118; border: 1px solid rgba(99,102,241,0.3); border-radius: 14px; padding: 20px; margin-bottom: 20px; animation: slideDown 0.2s ease; }
+        .edit-form { background: #111118; border: 1px solid rgba(99,102,241,0.3); border-radius: 14px; padding: 16px; margin-bottom: 16px; animation: slideDown 0.2s ease; }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-        .edit-form h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: #a5b4fc; }
-        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
-        @media (max-width: 400px) { .form-grid { grid-template-columns: 1fr; } }
-        .form-input { background: #0a0a0f; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 12px; color: #e8e8f0; font-family: 'Syne', sans-serif; font-size: 14px; width: 100%; outline: none; transition: border-color 0.2s; }
+        .edit-form h2 { font-size: 15px; font-weight: 700; margin-bottom: 14px; color: #a5b4fc; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+        @media (max-width: 400px) { .form-grid { grid-template-columns: 1fr; gap: 8px; } }
+        .form-input { background: #0a0a0f; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 11px 12px; color: #e8e8f0; font-family: 'Syne', sans-serif; font-size: 14px; width: 100%; outline: none; transition: border-color 0.2s; -webkit-appearance: none; }
         .form-input:focus { border-color: #6366f1; }
         .form-input::placeholder { color: #4b5563; }
         .form-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -361,8 +376,8 @@ Write the 100-word summary now:`
         .detail-label { font-size: 9px; font-weight: 700; color: #4b5563; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
         .detail-value { font-size: 12px; font-weight: 600; color: #9ca3af; font-family: 'Space Mono', monospace; }
         .trade-card-actions { display: flex; gap: 8px; }
-        .mobile-btn-edit { flex: 1; background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); padding: 8px; border-radius: 8px; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; }
-        .mobile-btn-delete { flex: 1; background: rgba(239,68,68,0.08); color: #f87171; border: 1px solid rgba(239,68,68,0.15); padding: 8px; border-radius: 8px; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; }
+        .mobile-btn-edit { flex: 1; background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); padding: 10px 8px; border-radius: 8px; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; min-height: 40px; }
+        .mobile-btn-delete { flex: 1; background: rgba(239,68,68,0.08); color: #f87171; border: 1px solid rgba(239,68,68,0.15); padding: 10px 8px; border-radius: 8px; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; min-height: 40px; }
         .profit-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
         .profit-dot.pos { background: #10b981; box-shadow: 0 0 5px #10b981; }
         .profit-dot.neg { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
@@ -373,9 +388,11 @@ Write the 100-word summary now:`
         .loading { text-align: center; padding: 48px; color: #4b5563; font-size: 13px; font-weight: 600; letter-spacing: 1px; }
 
         /* CAPSULE */
-        .capsule-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; animation: fadeIn 0.2s ease; }
+        .capsule-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: flex-end; justify-content: center; padding: 0; animation: fadeIn 0.2s ease; }
+        @media (min-width: 600px) { .capsule-overlay { align-items: center; padding: 16px; } }
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-        .capsule-panel { background: #0f0f18; border: 1px solid rgba(245,158,11,0.2); border-radius: 20px; width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; padding: 28px; animation: slideUp 0.25s ease; box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
+        .capsule-panel { background: #0f0f18; border: 1px solid rgba(245,158,11,0.2); border-radius: 20px 20px 0 0; width: 100%; max-width: 100%; max-height: 92vh; overflow-y: auto; padding: 24px 16px; padding-bottom: max(24px, env(safe-area-inset-bottom)); animation: slideUp 0.25s ease; box-shadow: 0 -8px 40px rgba(0,0,0,0.6); }
+        @media (min-width: 600px) { .capsule-panel { border-radius: 20px; max-width: 580px; max-height: 90vh; padding: 28px; box-shadow: 0 24px 80px rgba(0,0,0,0.6); } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
         .capsule-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
         .capsule-panel-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; }
