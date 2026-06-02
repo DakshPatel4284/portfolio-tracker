@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [editingTrade, setEditingTrade] = useState(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // CAPSULE STATES
   const [capsuleOpen, setCapsuleOpen] = useState(false)
@@ -108,18 +109,13 @@ export default function Dashboard() {
     XLSX.writeFile(wb, `TradeTrack_${period}_${new Date().toISOString().slice(0,10)}.xlsx`)
   }
 
-  // ─── PDF EXTRACT ──────────────────────────────────────────────────
   const extractTextFromPDF = async (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = async (e) => {
         try {
-          const pdfjsLib = await import(
-            /* webpackIgnore: true */
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs'
-          )
-          pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs'
+          const pdfjsLib = await import(/* webpackIgnore: true */ 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs')
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs'
           const typedArray = new Uint8Array(e.target.result)
           const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise
           let fullText = ''
@@ -140,73 +136,46 @@ export default function Dashboard() {
     const file = e.target.files[0]
     if (!file) return
     if (file.type !== 'application/pdf') { alert('Please upload a PDF file only'); return }
-    setPdfFileName(file.name)
-    setCapsuleSummary('')
-    setCapsuleHistory([])
-    setCapsuleVersion(0)
-    setCapsuleLoading(true)
+    setPdfFileName(file.name); setCapsuleSummary(''); setCapsuleHistory([]); setCapsuleVersion(0); setCapsuleLoading(true)
     try {
       const text = await extractTextFromPDF(file)
       if (!text || text.length < 50) { alert('Could not extract text from this PDF.'); setCapsuleLoading(false); return }
-      setPdfText(text)
-      await generateSummary(text, [])
-    } catch (err) {
-      alert('Error reading PDF: ' + err.message)
-      setCapsuleLoading(false)
-    }
+      setPdfText(text); await generateSummary(text, [])
+    } catch (err) { alert('Error reading PDF: ' + err.message); setCapsuleLoading(false) }
   }
 
   const generateSummary = async (text, history) => {
     setCapsuleLoading(true)
-    const previousSummaries = history.length > 0
-      ? `\n\nIMPORTANT: DO NOT repeat these previous summaries:\n${history.map((s, i) => `Version ${i+1}: ${s}`).join('\n\n')}\nFocus on completely different aspects.`
-      : ''
-    const prompt = `Summarize this document in EXACTLY 100 meaningful words. No filler phrases. Clear English. Focus on key facts and ideas.${previousSummaries}\n\nDocument:\n${text.slice(0, 6000)}\n\nWrite the 100-word summary now:`
+    const prev = history.length > 0 ? `\n\nDO NOT repeat:\n${history.map((s,i) => `v${i+1}: ${s}`).join('\n\n')}\nUse different aspects.` : ''
+    const prompt = `Summarize in EXACTLY 100 meaningful words. No filler. Clear English.${prev}\n\nDocument:\n${text.slice(0,6000)}\n\nSummary:`
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 300, temperature: 0.9
-        })
+        body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], max_tokens: 300, temperature: 0.9 })
       })
-      const data = await response.json()
-      if (data.error) { alert('Groq API error: ' + data.error.message); setCapsuleLoading(false); return }
-      setCapsuleSummary(data.choices[0].message.content.trim())
-      setCapsuleVersion(prev => prev + 1)
-    } catch (err) { alert('Failed to generate summary: ' + err.message) }
+      const data = await res.json()
+      if (data.error) { alert('Groq error: ' + data.error.message); setCapsuleLoading(false); return }
+      setCapsuleSummary(data.choices[0].message.content.trim()); setCapsuleVersion(prev => prev + 1)
+    } catch (err) { alert('Failed: ' + err.message) }
     setCapsuleLoading(false)
   }
 
   const handleRegenerate = async () => {
-    if (!pdfText) { alert('Please upload a PDF first'); return }
-    const newHistory = [...capsuleHistory, capsuleSummary]
-    setCapsuleHistory(newHistory)
-    await generateSummary(pdfText, newHistory)
+    if (!pdfText) { alert('Upload a PDF first'); return }
+    const h = [...capsuleHistory, capsuleSummary]; setCapsuleHistory(h); await generateSummary(pdfText, h)
   }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(capsuleSummary)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const handleCopy = () => { navigator.clipboard.writeText(capsuleSummary); setCopied(true); setTimeout(() => setCopied(false), 2000) }
 
   const closeCapsule = () => {
-    setCapsuleOpen(false); setCapsuleSummary(''); setCapsuleHistory([])
-    setCapsuleVersion(0); setPdfFileName(''); setPdfText('')
+    setCapsuleOpen(false); setCapsuleSummary(''); setCapsuleHistory([]); setCapsuleVersion(0); setPdfFileName(''); setPdfText('')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // ─── AI TRADE ANALYSIS ────────────────────────────────────────────
   const runAIAnalysis = async () => {
     if (trades.length === 0) { alert('No trades found. Add some trades first.'); return }
-    setAiOpen(true)
-    setAiLoading(true)
-    setAiAnalysis('')
-
-    // Build trade summary data
+    setMenuOpen(false); setAiOpen(true); setAiLoading(true); setAiAnalysis('')
     const totalP = trades.reduce((s,t) => s + Number(t.profit), 0)
     const wins = trades.filter(t => Number(t.profit) > 0)
     const losses = trades.filter(t => Number(t.profit) < 0)
@@ -215,107 +184,61 @@ export default function Dashboard() {
     const worstTrade = trades.reduce((a,b) => Number(a.profit) < Number(b.profit) ? a : b)
     const avgWin = wins.length > 0 ? wins.reduce((s,t) => s + Number(t.profit), 0) / wins.length : 0
     const avgLoss = losses.length > 0 ? losses.reduce((s,t) => s + Number(t.profit), 0) / losses.length : 0
-
-    // Stock wise performance
     const stockMap = {}
-    trades.forEach(t => {
-      if (!stockMap[t.stock_name]) stockMap[t.stock_name] = { profit: 0, count: 0 }
-      stockMap[t.stock_name].profit += Number(t.profit)
-      stockMap[t.stock_name].count += 1
-    })
-    const stockSummary = Object.entries(stockMap)
-      .map(([name, data]) => `${name}: ${data.count} trades, P&L = Rs ${data.profit.toFixed(0)}`)
-      .join('\n')
-
-    const tradeList = trades.slice(0, 30).map(t =>
-      `${t.stock_name} | Entry: ${t.entry_value} | Exit: ${t.exit_value} | Qty: ${t.quantity} | P&L: Rs ${t.profit} | Date: ${t.trade_date}`
-    ).join('\n')
-
-    const prompt = `You are an expert stock trading coach and analyst. Analyze this trader's performance data and give detailed honest insights.
+    trades.forEach(t => { if (!stockMap[t.stock_name]) stockMap[t.stock_name] = { profit: 0, count: 0 }; stockMap[t.stock_name].profit += Number(t.profit); stockMap[t.stock_name].count += 1 })
+    const stockSummary = Object.entries(stockMap).map(([name, data]) => `${name}: ${data.count} trades, P&L = Rs ${data.profit.toFixed(0)}`).join('\n')
+    const tradeList = trades.slice(0, 30).map(t => `${t.stock_name} | Entry: ${t.entry_value} | Exit: ${t.exit_value} | Qty: ${t.quantity} | P&L: Rs ${t.profit} | Date: ${t.trade_date}`).join('\n')
+    const prompt = `You are an expert stock trading coach. Analyze this trader's data and give detailed honest insights.
 
 TRADER DATA:
 - Total Trades: ${trades.length}
 - Total P&L: Rs ${totalP.toFixed(0)}
 - Win Rate: ${winRate}%
-- Winning Trades: ${wins.length}
-- Losing Trades: ${losses.length}
-- Best Trade: ${bestTrade.stock_name} with Rs ${bestTrade.profit} profit on ${bestTrade.trade_date}
-- Worst Trade: ${worstTrade.stock_name} with Rs ${worstTrade.profit} on ${worstTrade.trade_date}
-- Average Win: Rs ${avgWin.toFixed(0)}
-- Average Loss: Rs ${avgLoss.toFixed(0)}
+- Winning Trades: ${wins.length}, Losing: ${losses.length}
+- Best Trade: ${bestTrade.stock_name} Rs ${bestTrade.profit} on ${bestTrade.trade_date}
+- Worst Trade: ${worstTrade.stock_name} Rs ${worstTrade.profit} on ${worstTrade.trade_date}
+- Avg Win: Rs ${avgWin.toFixed(0)}, Avg Loss: Rs ${avgLoss.toFixed(0)}
 
-STOCK-WISE PERFORMANCE:
+STOCK PERFORMANCE:
 ${stockSummary}
 
 RECENT TRADES:
 ${tradeList}
 
-Give a detailed analysis with these EXACT sections using these EXACT emoji headers:
-
+Use EXACT emoji headers:
 📈 OVERALL PERFORMANCE
-Write 2-3 sentences about overall profitability and trading health.
-
 🏆 BEST PERFORMING STOCK
-Which stock gives best returns and why.
-
 ⚠️ RISK ASSESSMENT
-Honest assessment of risk management. Is average loss too big vs wins?
-
 📊 TRADING PATTERNS
-What patterns do you notice in their trading behavior?
-
 💡 TOP 3 SUGGESTIONS
-Numbered list of 3 specific actionable improvements.
-
 🚫 MISTAKES TO AVOID
-2-3 specific mistakes visible in their data.
 
-Keep each section concise and specific to THEIR actual data. Be honest but constructive.`
-
+Be concise, honest, specific to their data.`
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 1000,
-          temperature: 0.7
-        })
+        body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], max_tokens: 1000, temperature: 0.7 })
       })
-      const data = await response.json()
-      if (data.error) { alert('Groq API error: ' + data.error.message); setAiLoading(false); return }
+      const data = await res.json()
+      if (data.error) { alert('Groq error: ' + data.error.message); setAiLoading(false); return }
       setAiAnalysis(data.choices[0].message.content.trim())
-    } catch (err) { alert('Failed to generate analysis: ' + err.message) }
+    } catch (err) { alert('Failed: ' + err.message) }
     setAiLoading(false)
   }
 
-  const handleAiCopy = () => {
-    navigator.clipboard.writeText(aiAnalysis)
-    setAiCopied(true)
-    setTimeout(() => setAiCopied(false), 2000)
-  }
+  const handleAiCopy = () => { navigator.clipboard.writeText(aiAnalysis); setAiCopied(true); setTimeout(() => setAiCopied(false), 2000) }
 
-  // Parse analysis into sections for beautiful display
   const parseAnalysis = (text) => {
+    const headers = [{ emoji: '📈', key: 'performance' }, { emoji: '🏆', key: 'best' }, { emoji: '⚠️', key: 'risk' }, { emoji: '📊', key: 'patterns' }, { emoji: '💡', key: 'suggestions' }, { emoji: '🚫', key: 'mistakes' }]
     const sections = []
-    const sectionHeaders = [
-      { emoji: '📈', key: 'performance' },
-      { emoji: '🏆', key: 'best' },
-      { emoji: '⚠️', key: 'risk' },
-      { emoji: '📊', key: 'patterns' },
-      { emoji: '💡', key: 'suggestions' },
-      { emoji: '🚫', key: 'mistakes' },
-    ]
-    sectionHeaders.forEach(({ emoji, key }) => {
-      const regex = new RegExp(`${emoji}[\\s\\S]*?(?=${sectionHeaders.map(s => s.emoji).filter(e => e !== emoji).join('|')}|$)`, 'g')
+    headers.forEach(({ emoji, key }) => {
+      const others = headers.map(s => s.emoji).filter(e => e !== emoji).join('|')
+      const regex = new RegExp(`${emoji}[\\s\\S]*?(?=${others}|$)`, 'g')
       const match = text.match(regex)
       if (match) {
-        const content = match[0].trim()
-        const lines = content.split('\n')
-        const title = lines[0].trim()
-        const body = lines.slice(1).join('\n').trim()
-        sections.push({ emoji, title, body, key })
+        const lines = match[0].trim().split('\n')
+        sections.push({ emoji, title: lines[0].trim(), body: lines.slice(1).join('\n').trim(), key })
       }
     })
     return sections.length > 0 ? sections : [{ emoji: '🤖', title: 'AI Analysis', body: text, key: 'full' }]
@@ -336,6 +259,13 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
   const filteredTrades = getFilteredTrades()
   const filteredProfit = filteredTrades.reduce((s,t) => s + Number(t.profit), 0)
 
+  const menuItems = [
+    { label: 'AI Analysis', emoji: '🤖', color: '#10b981', action: () => { setMenuOpen(false); runAIAnalysis() } },
+    { label: 'Capsule', emoji: '💊', color: '#fbbf24', action: () => { setMenuOpen(false); setCapsuleOpen(true) } },
+    { label: 'News', emoji: '📰', color: '#818cf8', action: () => { setMenuOpen(false); router.push('/news') } },
+    { label: 'Add Trade', emoji: '+', color: '#10b981', action: () => { setMenuOpen(false); router.push('/add-trade') }, solid: true },
+  ]
+
   return (
     <>
       <style>{`
@@ -350,7 +280,7 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
             radial-gradient(ellipse at 80% 80%, rgba(16,185,129,0.05) 0%, transparent 50%);
         }
 
-        /* NAVBAR */
+        /* ── NAVBAR ── */
         .navbar {
           border-bottom: 1px solid rgba(255,255,255,0.06);
           padding: 0 20px; height: 60px;
@@ -358,10 +288,12 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
           background: rgba(10,10,15,0.95); backdrop-filter: blur(12px);
           position: sticky; top: 0; z-index: 100;
         }
-        .logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; letter-spacing: -0.5px; flex-shrink: 0; }
+        .logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; letter-spacing: -0.5px; }
         .logo-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; flex-shrink: 0; }
-        .nav-right { display: flex; align-items: center; gap: 6px; }
-        .nav-btn { border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.2s; border: none; padding: 8px 10px; display: flex; align-items: center; gap: 4px; }
+
+        /* Desktop nav buttons */
+        .nav-desktop { display: flex; align-items: center; gap: 6px; }
+        .nav-btn { border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.2s; border: none; padding: 8px 12px; display: flex; align-items: center; gap: 5px; }
         .btn-ai { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.25) !important; }
         .btn-ai:hover { background: rgba(16,185,129,0.22); }
         .btn-capsule { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2) !important; }
@@ -370,10 +302,65 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
         .btn-news:hover { background: rgba(99,102,241,0.22); }
         .btn-add { background: #10b981; color: #0a0a0f; }
         .btn-add:hover { background: #0d9e6e; }
-        .btn-text { }
-        @media (max-width: 480px) { .btn-text { display: none; } .nav-btn { padding: 8px; font-size: 14px; } .logo span { display: none; } }
 
-        /* MAIN */
+        /* Hide desktop nav on mobile, show hamburger */
+        @media (max-width: 640px) { .nav-desktop { display: none; } }
+
+        /* ── HAMBURGER BUTTON ── */
+        .hamburger-btn {
+          display: none; flex-direction: column; justify-content: center; align-items: center;
+          gap: 5px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 10px; width: 40px; height: 40px; cursor: pointer; transition: all 0.2s;
+          padding: 0;
+        }
+        @media (max-width: 640px) { .hamburger-btn { display: flex; } }
+        .hamburger-btn:hover { background: rgba(255,255,255,0.1); }
+        .ham-line {
+          width: 18px; height: 2px; background: #e8e8f0; border-radius: 2px;
+          transition: all 0.25s ease; transform-origin: center;
+        }
+        .hamburger-btn.open .ham-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .hamburger-btn.open .ham-line:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        .hamburger-btn.open .ham-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        /* ── MOBILE DROPDOWN MENU ── */
+        .mobile-menu-overlay {
+          display: none; position: fixed; inset: 0; z-index: 99;
+          background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+          animation: fadeIn 0.15s ease;
+        }
+        .mobile-menu-overlay.open { display: block; }
+
+        .mobile-menu {
+          position: fixed; top: 68px; right: 16px; z-index: 100;
+          background: #111118; border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 16px; padding: 8px; min-width: 220px;
+          animation: menuSlideDown 0.2s ease;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        @keyframes menuSlideDown { from { opacity: 0; transform: translateY(-10px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        .menu-item {
+          display: flex; align-items: center; gap: 12px;
+          padding: 13px 14px; border-radius: 10px; cursor: pointer;
+          transition: background 0.15s; border: none; background: transparent;
+          width: 100%; text-align: left; font-family: 'Syne', sans-serif;
+          font-size: 14px; font-weight: 700; color: #e8e8f0;
+        }
+        .menu-item:hover { background: rgba(255,255,255,0.06); }
+        .menu-item:not(:last-child) { margin-bottom: 2px; }
+        .menu-item-emoji {
+          width: 34px; height: 34px; border-radius: 9px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 16px; flex-shrink: 0;
+        }
+        .menu-item-label { flex: 1; }
+        .menu-item-arrow { color: #4b5563; font-size: 12px; }
+        .menu-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 6px 0; }
+        .menu-item.solid-green .menu-item-emoji { background: #10b981; color: #0a0a0f; font-size: 18px; font-weight: 900; }
+        .menu-item.solid-green { color: #10b981; }
+
+        /* ── MAIN ── */
         .main { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
         .page-title { font-size: 26px; font-weight: 800; letter-spacing: -1px; color: #f0f0f8; }
         .page-subtitle { color: #6b7280; font-size: 13px; margin-top: 4px; }
@@ -468,10 +455,11 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
         .empty-sub { font-size: 12px; }
         .loading { text-align: center; padding: 48px; color: #4b5563; font-size: 13px; font-weight: 600; letter-spacing: 1px; }
 
-        /* MODAL BASE */
+        /* MODALS */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 12px; animation: fadeIn 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
+        .modal-close-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #6b7280; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
         /* CAPSULE MODAL */
         .capsule-panel { background: #0f0f18; border: 1px solid rgba(245,158,11,0.2); border-radius: 20px; width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; padding: 24px; animation: slideUp 0.25s ease; }
@@ -479,7 +467,6 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
         .capsule-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
         .capsule-panel-title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 800; }
         .capsule-icon-badge { width: 34px; height: 34px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
-        .modal-close-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #6b7280; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .upload-area { border: 2px dashed rgba(245,158,11,0.25); border-radius: 14px; padding: 24px 16px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 18px; background: rgba(245,158,11,0.03); }
         .upload-area:hover { border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.06); }
         .upload-area.has-file { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.04); }
@@ -499,14 +486,13 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
         .summary-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .summary-label { font-size: 10px; font-weight: 700; color: #f59e0b; text-transform: uppercase; letter-spacing: 1.2px; }
         .version-badge { font-size: 10px; font-weight: 700; background: rgba(245,158,11,0.12); color: #fbbf24; padding: 2px 8px; border-radius: 20px; }
-        .summary-text { font-family: 'Roboto', sans-serif; font-size: 15px; font-weight: 400; color: #d1d5db; line-height: 1.75; letter-spacing: 0.2px; }
+        .summary-text { font-family: 'Roboto', sans-serif; font-size: 15px; font-weight: 400; color: #d1d5db; line-height: 1.75; }
         @media (max-width: 480px) { .summary-text { font-size: 14px; } }
         .word-count { font-size: 11px; color: #4b5563; margin-top: 10px; font-family: 'Space Mono', monospace; text-align: right; }
         .capsule-actions { display: flex; gap: 10px; margin-bottom: 4px; }
-        .btn-regenerate { flex: 1; background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); padding: 12px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; text-align: center; }
-        .btn-regenerate:hover:not(:disabled) { background: rgba(245,158,11,0.22); }
+        .btn-regenerate { flex: 1; background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); padding: 12px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; text-align: center; }
         .btn-regenerate:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-copy { background: rgba(255,255,255,0.06); color: #9ca3af; border: 1px solid rgba(255,255,255,0.08); padding: 12px 18px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .btn-copy { background: rgba(255,255,255,0.06); color: #9ca3af; border: 1px solid rgba(255,255,255,0.08); padding: 12px 18px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; }
         .btn-copy.copied { background: rgba(16,185,129,0.12); color: #10b981; border-color: rgba(16,185,129,0.2); }
         .history-section { margin-top: 18px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 14px; }
         .history-title { font-size: 11px; font-weight: 700; color: #4b5563; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
@@ -514,20 +500,24 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
         .history-version { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
         .history-text { font-family: 'Roboto', sans-serif; font-size: 13px; color: #6b7280; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
-        /* AI ANALYSIS MODAL */
+        /* AI MODAL */
         .ai-panel { background: #0c0c14; border: 1px solid rgba(16,185,129,0.2); border-radius: 20px; width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto; padding: 24px; animation: slideUp 0.25s ease; }
         @media (max-width: 480px) { .ai-panel { padding: 16px; border-radius: 16px; } }
         .ai-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
         .ai-panel-title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 800; }
         .ai-icon-badge { width: 34px; height: 34px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
-
-        /* AI SECTION CARDS */
+        .ai-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+        @media (max-width: 400px) { .ai-stats-row { grid-template-columns: 1fr 1fr; } }
+        .ai-stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 12px; text-align: center; }
+        .ai-stat-val { font-family: 'Space Mono', monospace; font-size: 16px; font-weight: 700; }
+        .ai-stat-val.green { color: #10b981; }
+        .ai-stat-val.red { color: #ef4444; }
+        .ai-stat-val.blue { color: #818cf8; }
+        .ai-stat-label { font-size: 10px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 4px; }
         .ai-section { background: #111118; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; margin-bottom: 12px; animation: fadeIn 0.3s ease; }
-        .ai-section-title { font-size: 13px; font-weight: 700; color: #e8e8f0; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .ai-section-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
         .ai-section-body { font-family: 'Roboto', sans-serif; font-size: 14px; color: #9ca3af; line-height: 1.7; white-space: pre-wrap; }
         @media (max-width: 480px) { .ai-section-body { font-size: 13px; } }
-
-        /* Color per section */
         .ai-section.performance { border-color: rgba(16,185,129,0.2); }
         .ai-section.performance .ai-section-title { color: #10b981; }
         .ai-section.best { border-color: rgba(251,191,36,0.2); }
@@ -540,23 +530,11 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
         .ai-section.suggestions .ai-section-title { color: #10b981; }
         .ai-section.mistakes { border-color: rgba(239,68,68,0.15); }
         .ai-section.mistakes .ai-section-title { color: #f87171; }
-
         .ai-actions { display: flex; gap: 10px; margin-top: 4px; }
-        .btn-reanalyze { flex: 1; background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.25); padding: 12px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; text-align: center; }
-        .btn-reanalyze:hover:not(:disabled) { background: rgba(16,185,129,0.22); }
+        .btn-reanalyze { flex: 1; background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.25); padding: 12px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; text-align: center; }
         .btn-reanalyze:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-ai-copy { background: rgba(255,255,255,0.06); color: #9ca3af; border: 1px solid rgba(255,255,255,0.08); padding: 12px 18px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; }
         .btn-ai-copy.copied { background: rgba(16,185,129,0.12); color: #10b981; border-color: rgba(16,185,129,0.2); }
-
-        /* AI QUICK STATS */
-        .ai-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-        @media (max-width: 400px) { .ai-stats-row { grid-template-columns: 1fr 1fr; } }
-        .ai-stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 12px; text-align: center; }
-        .ai-stat-val { font-family: 'Space Mono', monospace; font-size: 16px; font-weight: 700; }
-        .ai-stat-val.green { color: #10b981; }
-        .ai-stat-val.red { color: #ef4444; }
-        .ai-stat-val.blue { color: #818cf8; }
-        .ai-stat-label { font-size: 10px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 4px; }
       `}</style>
 
       <div className="dashboard-bg">
@@ -567,21 +545,55 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
             <div className="logo-dot"></div>
             <span>TradeTrack</span>
           </div>
-          <div className="nav-right">
-            <button className="nav-btn btn-ai" onClick={runAIAnalysis}>
-              🤖 <span className="btn-text">AI Analysis</span>
-            </button>
-            <button className="nav-btn btn-capsule" onClick={() => setCapsuleOpen(true)}>
-              💊 <span className="btn-text">Capsule</span>
-            </button>
-            <button className="nav-btn btn-news" onClick={() => router.push('/news')}>
-              📰 <span className="btn-text">News</span>
-            </button>
-            <button className="nav-btn btn-add" onClick={() => router.push('/add-trade')}>
-              + <span className="btn-text">Add Trade</span>
-            </button>
+
+          {/* DESKTOP BUTTONS */}
+          <div className="nav-desktop">
+            <button className="nav-btn btn-ai" onClick={runAIAnalysis}>🤖 AI Analysis</button>
+            <button className="nav-btn btn-capsule" onClick={() => setCapsuleOpen(true)}>💊 Capsule</button>
+            <button className="nav-btn btn-news" onClick={() => router.push('/news')}>📰 News</button>
+            <button className="nav-btn btn-add" onClick={() => router.push('/add-trade')}>+ Add Trade</button>
           </div>
+
+          {/* HAMBURGER BUTTON — mobile only */}
+          <button
+            className={`hamburger-btn ${menuOpen ? 'open' : ''}`}
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <span className="ham-line"></span>
+            <span className="ham-line"></span>
+            <span className="ham-line"></span>
+          </button>
         </nav>
+
+        {/* MOBILE MENU OVERLAY */}
+        <div className={`mobile-menu-overlay ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)} />
+
+        {/* MOBILE DROPDOWN MENU */}
+        {menuOpen && (
+          <div className="mobile-menu">
+            {menuItems.map((item, i) => (
+              <div key={i}>
+                {i === menuItems.length - 1 && <div className="menu-divider" />}
+                <button
+                  className={`menu-item ${item.solid ? 'solid-green' : ''}`}
+                  onClick={item.action}
+                >
+                  <div
+                    className="menu-item-emoji"
+                    style={!item.solid ? {
+                      background: `${item.color}18`,
+                      border: `1px solid ${item.color}33`
+                    } : {}}
+                  >
+                    {item.emoji}
+                  </div>
+                  <span className="menu-item-label">{item.label}</span>
+                  <span className="menu-item-arrow">›</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="main">
 
@@ -706,7 +718,6 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
               </>
             )}
           </div>
-
         </div>
       </div>
 
@@ -729,11 +740,7 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
             <input ref={fileInputRef} type="file" accept=".pdf" className="file-input-hidden" onChange={handlePDFUpload} />
             {capsuleLoading && (
               <>
-                <div className="loading-dots">
-                  <div className="loading-dot yellow"></div>
-                  <div className="loading-dot yellow"></div>
-                  <div className="loading-dot yellow"></div>
-                </div>
+                <div className="loading-dots"><div className="loading-dot yellow"></div><div className="loading-dot yellow"></div><div className="loading-dot yellow"></div></div>
                 <div className="loading-label">GENERATING CAPSULE...</div>
               </>
             )}
@@ -772,7 +779,6 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
       {aiOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setAiOpen(false) }}>
           <div className="ai-panel">
-
             <div className="ai-panel-header">
               <div className="ai-panel-title">
                 <div className="ai-icon-badge">🤖</div>
@@ -780,14 +786,10 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
               </div>
               <button className="modal-close-btn" onClick={() => setAiOpen(false)}>✕</button>
             </div>
-
-            {/* QUICK STATS */}
             {trades.length > 0 && (
               <div className="ai-stats-row">
                 <div className="ai-stat">
-                  <div className={`ai-stat-val ${totalProfit >= 0 ? 'green' : 'red'}`}>
-                    ₹{Math.abs(totalProfit).toLocaleString('en-IN')}
-                  </div>
+                  <div className={`ai-stat-val ${totalProfit >= 0 ? 'green' : 'red'}`}>₹{Math.abs(totalProfit).toLocaleString('en-IN')}</div>
                   <div className="ai-stat-label">Total P&L</div>
                 </div>
                 <div className="ai-stat">
@@ -800,20 +802,12 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
                 </div>
               </div>
             )}
-
-            {/* LOADING */}
             {aiLoading && (
               <>
-                <div className="loading-dots">
-                  <div className="loading-dot green"></div>
-                  <div className="loading-dot green"></div>
-                  <div className="loading-dot green"></div>
-                </div>
+                <div className="loading-dots"><div className="loading-dot green"></div><div className="loading-dot green"></div><div className="loading-dot green"></div></div>
                 <div className="loading-label">AI IS ANALYZING YOUR TRADES...</div>
               </>
             )}
-
-            {/* ANALYSIS SECTIONS */}
             {aiAnalysis && !aiLoading && (
               <>
                 {parseAnalysis(aiAnalysis).map((section) => (
@@ -823,16 +817,11 @@ Keep each section concise and specific to THEIR actual data. Be honest but const
                   </div>
                 ))}
                 <div className="ai-actions">
-                  <button className="btn-reanalyze" onClick={runAIAnalysis} disabled={aiLoading}>
-                    🔄 Re-Analyze
-                  </button>
-                  <button className={`btn-ai-copy ${aiCopied ? 'copied' : ''}`} onClick={handleAiCopy}>
-                    {aiCopied ? '✅ Copied!' : '📋 Copy'}
-                  </button>
+                  <button className="btn-reanalyze" onClick={runAIAnalysis} disabled={aiLoading}>🔄 Re-Analyze</button>
+                  <button className={`btn-ai-copy ${aiCopied ? 'copied' : ''}`} onClick={handleAiCopy}>{aiCopied ? '✅ Copied!' : '📋 Copy'}</button>
                 </div>
               </>
             )}
-
           </div>
         </div>
       )}
