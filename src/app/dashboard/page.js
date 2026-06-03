@@ -34,6 +34,14 @@ export default function Dashboard() {
   const [aiAnalysis, setAiAnalysis] = useState('')
   const [aiCopied, setAiCopied] = useState(false)
 
+  // DOCSUMMARY STATES
+  const [docOpen, setDocOpen] = useState(false)
+  const [docLoading, setDocLoading] = useState(false)
+  const [docSummary, setDocSummary] = useState('')
+  const [docFileName, setDocFileName] = useState('')
+  const [docCopied, setDocCopied] = useState(false)
+  const docFileRef = useRef(null)
+
   useEffect(() => { fetchTrades() }, [])
 
   const fetchTrades = async () => {
@@ -106,7 +114,7 @@ export default function Dashboard() {
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, label)
-    XLSX.writeFile(wb, `TradeTrack_${period}_${new Date().toISOString().slice(0,10)}.xlsx`)
+    XLSX.writeFile(wb, `VSPAND Analytics_${period}_${new Date().toISOString().slice(0,10)}.xlsx`)
   }
 
   const loadPdfJs = () => {
@@ -124,7 +132,7 @@ export default function Dashboard() {
     })
   }
 
-  const extractTextFromPDF = async (file) => {
+  const extractPDFText = async (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = async (e) => {
@@ -133,7 +141,7 @@ export default function Dashboard() {
           const typedArray = new Uint8Array(e.target.result)
           const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise
           let fullText = ''
-          for (let i = 1; i <= Math.min(pdf.numPages, 15); i++) {
+          for (let i = 1; i <= Math.min(pdf.numPages, 100); i++) {
             const page = await pdf.getPage(i)
             const content = await page.getTextContent()
             fullText += content.items.map(item => item.str).join(' ') + ' '
@@ -143,13 +151,15 @@ export default function Dashboard() {
             reject(new Error('No readable text found. This may be a scanned image PDF.'))
             return
           }
-          resolve(cleaned.slice(0, 8000))
+          resolve(cleaned.slice(0, 20000))
         } catch (err) { reject(err) }
       }
       reader.onerror = reject
       reader.readAsArrayBuffer(file)
     })
   }
+
+  const extractTextFromPDF = extractPDFText
 
   const handlePDFUpload = async (e) => {
     const file = e.target.files[0]
@@ -248,6 +258,81 @@ Be concise, honest, specific to their data.`
 
   const handleAiCopy = () => { navigator.clipboard.writeText(aiAnalysis); setAiCopied(true); setTimeout(() => setAiCopied(false), 2000) }
 
+  // ─── DOCSUMMARY FUNCTIONS ─────────────────────────────────────────
+  const handleDocUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.type !== 'application/pdf') { alert('Please upload a PDF file only'); return }
+    setDocFileName(file.name)
+    setDocSummary('')
+    setDocLoading(true)
+    try {
+      const text = await extractPDFText(file)
+      if (!text || text.length < 50) {
+        alert('Could not extract text from this PDF. It may be a scanned image.')
+        setDocLoading(false)
+        return
+      }
+      // Generate strictly document-only summary
+      const prompt = `You are a document summarizer. Read the document below carefully.
+
+YOUR STRICT RULES:
+- Use ONLY information that is explicitly written in the document
+- Do NOT add any outside knowledge, assumptions, or general facts
+- Do NOT mention anything not present in the document text
+- If something is not in the document, do not include it
+- Write a structured short summary with these sections (only include sections that have content in the document):
+
+📌 MAIN TOPIC
+One sentence about what this document is about based only on its content.
+
+🔑 KEY POINTS
+3-5 bullet points of the most important facts, data, or ideas from the document.
+
+📊 IMPORTANT DETAILS
+Any specific numbers, dates, names, or data mentioned in the document.
+
+💬 CONCLUSION
+One sentence summary of the document's conclusion or outcome if present.
+
+Document content:
+${text.slice(0, 18000)}
+
+Write the summary using ONLY content from the above document. Do not add anything outside of it.`
+
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 600,
+          temperature: 0.3
+        })
+      })
+      const data = await res.json()
+      if (data.error) { alert('Groq error: ' + data.error.message); setDocLoading(false); return }
+      setDocSummary(data.choices[0].message.content.trim())
+    } catch (err) {
+      alert('Error: ' + err.message)
+    }
+    setDocLoading(false)
+  }
+
+  const closeDoc = () => {
+    setDocOpen(false)
+    setDocSummary('')
+    setDocFileName('')
+    setDocLoading(false)
+    if (docFileRef.current) docFileRef.current.value = ''
+  }
+
+  const handleDocCopy = () => {
+    navigator.clipboard.writeText(docSummary)
+    setDocCopied(true)
+    setTimeout(() => setDocCopied(false), 2000)
+  }
+
   const parseAnalysis = (text) => {
     const headers = [{ emoji: '📈', key: 'performance' }, { emoji: '🏆', key: 'best' }, { emoji: '⚠️', key: 'risk' }, { emoji: '📊', key: 'patterns' }, { emoji: '💡', key: 'suggestions' }, { emoji: '🚫', key: 'mistakes' }]
     const sections = []
@@ -280,6 +365,7 @@ Be concise, honest, specific to their data.`
 
   const menuItems = [
     { label: 'AI Analysis', emoji: '🤖', color: '#10b981', action: () => { setMenuOpen(false); runAIAnalysis() } },
+    { label: 'DocSummary', emoji: '📝', color: '#3b82f6', action: () => { setMenuOpen(false); setDocOpen(true) } },
     { label: 'Capsule', emoji: '💊', color: '#fbbf24', action: () => { setMenuOpen(false); setCapsuleOpen(true) } },
     { label: 'News', emoji: '📰', color: '#818cf8', action: () => { setMenuOpen(false); router.push('/news') } },
     { label: 'Add Trade', emoji: '+', color: '#10b981', action: () => { setMenuOpen(false); router.push('/add-trade') }, solid: true },
@@ -315,8 +401,36 @@ Be concise, honest, specific to their data.`
         .nav-btn { border-radius: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.2s; border: none; padding: 8px 12px; display: flex; align-items: center; gap: 5px; }
         .btn-ai { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.25) !important; }
         .btn-ai:hover { background: rgba(16,185,129,0.22); }
+        .btn-doc { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2) !important; }
+        .btn-doc:hover { background: rgba(59,130,246,0.22); }
         .btn-capsule { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2) !important; }
         .btn-capsule:hover { background: rgba(245,158,11,0.22); }
+
+        /* DOCSUMMARY MODAL */
+        .doc-panel { background: #0c0f18; border: 1px solid rgba(59,130,246,0.2); border-radius: 20px; width: 100%; max-width: 580px; max-height: 92vh; overflow-y: auto; padding: 24px; animation: slideUp 0.25s ease; box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
+        @media (max-width: 480px) { .doc-panel { padding: 16px; border-radius: 16px; } }
+        .doc-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .doc-panel-title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 800; }
+        .doc-icon-badge { width: 34px; height: 34px; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+        .doc-upload-area { border: 2px dashed rgba(59,130,246,0.25); border-radius: 14px; padding: 28px 16px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 18px; background: rgba(59,130,246,0.03); }
+        .doc-upload-area:hover { border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.06); }
+        .doc-upload-area.has-file { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.04); }
+        .doc-upload-icon { font-size: 32px; margin-bottom: 10px; }
+        .doc-upload-text { font-size: 14px; font-weight: 700; color: #e8e8f0; margin-bottom: 4px; word-break: break-all; }
+        .doc-upload-sub { font-size: 12px; color: #6b7280; }
+        .doc-result { background: #080810; border: 1px solid rgba(59,130,246,0.15); border-radius: 14px; padding: 20px; margin-bottom: 14px; animation: fadeIn 0.3s ease; }
+        .doc-result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .doc-result-label { font-size: 10px; font-weight: 700; color: #60a5fa; text-transform: uppercase; letter-spacing: 1.2px; display: flex; align-items: center; gap: 6px; }
+        .doc-filename { font-size: 11px; color: #4b5563; font-family: 'Space Mono', monospace; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .doc-summary-text { font-family: 'Roboto', sans-serif; font-size: 14px; font-weight: 400; color: #d1d5db; line-height: 1.8; white-space: pre-wrap; letter-spacing: 0.1px; }
+        @media (max-width: 480px) { .doc-summary-text { font-size: 13px; } }
+        .doc-actions { display: flex; gap: 10px; }
+        .doc-btn-new { flex: 1; background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); padding: 12px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; text-align: center; }
+        .doc-btn-new:hover { background: rgba(59,130,246,0.22); }
+        .doc-btn-copy { background: rgba(255,255,255,0.06); color: #9ca3af; border: 1px solid rgba(255,255,255,0.08); padding: 12px 18px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; }
+        .doc-btn-copy.copied { background: rgba(16,185,129,0.12); color: #10b981; border-color: rgba(16,185,129,0.2); }
+        .doc-info-box { background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 12px; color: #6b7280; line-height: 1.6; }
+        .doc-info-box strong { color: #60a5fa; }
         .btn-news { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.2) !important; }
         .btn-news:hover { background: rgba(99,102,241,0.22); }
         .btn-add { background: #10b981; color: #0a0a0f; }
@@ -562,12 +676,13 @@ Be concise, honest, specific to their data.`
         <nav className="navbar">
           <div className="logo">
             <div className="logo-dot"></div>
-            <span>TradeTrack</span>
+            <span>VSPAND Analytics</span>
           </div>
 
           {/* DESKTOP BUTTONS */}
           <div className="nav-desktop">
             <button className="nav-btn btn-ai" onClick={runAIAnalysis}>🤖 AI Analysis</button>
+            <button className="nav-btn btn-doc" onClick={() => setDocOpen(true)}>📝 DocSummary</button>
             <button className="nav-btn btn-capsule" onClick={() => setCapsuleOpen(true)}>💊 Capsule</button>
             <button className="nav-btn btn-news" onClick={() => router.push('/news')}>📰 News</button>
             <button className="nav-btn btn-add" onClick={() => router.push('/add-trade')}>+ Add Trade</button>
@@ -790,6 +905,68 @@ Be concise, honest, specific to their data.`
                 )}
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* DOCSUMMARY MODAL */}
+      {docOpen && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeDoc() }}>
+          <div className="doc-panel">
+
+            <div className="doc-panel-header">
+              <div className="doc-panel-title">
+                <div className="doc-icon-badge">📝</div>
+                <span>DocSummary</span>
+              </div>
+              <button className="modal-close-btn" onClick={closeDoc}>✕</button>
+            </div>
+
+            <div className="doc-info-box">
+              <strong>Strictly document-based.</strong> This summary contains only information found inside your uploaded PDF — no outside knowledge added.
+            </div>
+
+            <div
+              className={`doc-upload-area ${docFileName ? 'has-file' : ''}`}
+              onClick={() => docFileRef.current.click()}
+            >
+              <div className="doc-upload-icon">{docFileName ? '✅' : '📄'}</div>
+              <div className="doc-upload-text">{docFileName || 'Click to upload PDF'}</div>
+              <div className="doc-upload-sub">{docFileName ? 'Click to upload a different PDF' : 'PDF files only — summary from document content only'}</div>
+            </div>
+            <input ref={docFileRef} type="file" accept=".pdf" className="file-input-hidden" onChange={handleDocUpload} />
+
+            {docLoading && (
+              <>
+                <div className="loading-dots">
+                  <div className="loading-dot" style={{ background: '#60a5fa' }}></div>
+                  <div className="loading-dot" style={{ background: '#60a5fa' }}></div>
+                  <div className="loading-dot" style={{ background: '#60a5fa' }}></div>
+                </div>
+                <div className="loading-label">READING DOCUMENT...</div>
+              </>
+            )}
+
+            {docSummary && !docLoading && (
+              <>
+                <div className="doc-result">
+                  <div className="doc-result-header">
+                    <div className="doc-result-label">📝 Document Summary</div>
+                    <div className="doc-filename">{docFileName}</div>
+                  </div>
+                  <div className="doc-summary-text">{docSummary}</div>
+                </div>
+                <div className="doc-actions">
+                  <button className="doc-btn-new" onClick={() => { setDocSummary(''); setDocFileName(''); if (docFileRef.current) docFileRef.current.value = '' }}>
+                    📄 New Document
+                  </button>
+                  <button className={`doc-btn-copy ${docCopied ? 'copied' : ''}`} onClick={handleDocCopy}>
+                    {docCopied ? '✅ Copied!' : '📋 Copy'}
+                  </button>
+                </div>
+              </>
+            )}
+
           </div>
         </div>
       )}
