@@ -109,22 +109,41 @@ export default function Dashboard() {
     XLSX.writeFile(wb, `TradeTrack_${period}_${new Date().toISOString().slice(0,10)}.xlsx`)
   }
 
+  const loadPdfJs = () => {
+    return new Promise((resolve, reject) => {
+      if (window.pdfjsLib) { resolve(window.pdfjsLib); return }
+      const script = document.createElement('script')
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+      script.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+        resolve(window.pdfjsLib)
+      }
+      script.onerror = () => reject(new Error('Failed to load PDF.js'))
+      document.head.appendChild(script)
+    })
+  }
+
   const extractTextFromPDF = async (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = async (e) => {
         try {
-          const pdfjsLib = await import(/* webpackIgnore: true */ 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs')
-          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs'
+          const pdfjsLib = await loadPdfJs()
           const typedArray = new Uint8Array(e.target.result)
           const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise
           let fullText = ''
-          for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
+          for (let i = 1; i <= Math.min(pdf.numPages, 15); i++) {
             const page = await pdf.getPage(i)
             const content = await page.getTextContent()
             fullText += content.items.map(item => item.str).join(' ') + ' '
           }
-          resolve(fullText.trim().slice(0, 8000))
+          const cleaned = fullText.replace(/\s+/g, ' ').trim()
+          if (!cleaned || cleaned.length < 30) {
+            reject(new Error('No readable text found. This may be a scanned image PDF.'))
+            return
+          }
+          resolve(cleaned.slice(0, 8000))
         } catch (err) { reject(err) }
       }
       reader.onerror = reject
